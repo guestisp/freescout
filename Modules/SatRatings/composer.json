@@ -1,0 +1,25 @@
+{
+    "name": "nwidart/satratings",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\SatRatings\\Providers\\SatRatingsServiceProvider"
+            ],
+            "aliases": {
+                
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\SatRatings\\": ""
+        }
+    }
+}
