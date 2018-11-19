@@ -45,16 +45,6 @@ class SavedRepliesServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the service provider.
-     *
-     * @return void
-     */
-    public function register()
-    {
-        //
-    }
-
-    /**
      * Module hooks.
      */
     public function hooks()
@@ -65,10 +55,8 @@ class SavedRepliesServiceProvider extends ServiceProvider
         }, 20);
 
         // Show saved replies in reply editor
-        \Eventy::addAction('reply_form.after', function($conversation) {
-            $saved_replies = SavedReply::where('mailbox_id', $conversation->mailbox->id)->get();
-            echo \View::make('savedreplies::partials/editor_dropdown', ['saved_replies' => $saved_replies])->render();
-        });
+        \Eventy::addAction('reply_form.after', [$this, 'editorDropdown']);
+        \Eventy::addAction('new_conversation_form.after', [$this, 'editorDropdown']);
 
         // Add module's JS file to the application layout.
         \Eventy::addFilter('javascripts', function($value) {
@@ -76,12 +64,12 @@ class SavedRepliesServiceProvider extends ServiceProvider
             array_push($value, '/modules/'.SR_MODULE.'/js/vars.js');
             array_push($value, '/modules/'.SR_MODULE.'/js/module.js');
             return $value;
-        }, 10, 1);
+        }, 20, 1);
 
         // Determine whether the user can view mailboxes menu.
         \Eventy::addFilter('user.can_view_mailbox_menu', function($value, $user) {
             return $value || $user->hasPermission(User::PERM_EDIT_SAVED_REPLIES);
-        }, 10, 2);
+        }, 20, 2);
 
         // Redirect user to the accessible mailbox settings route.
         \Eventy::addFilter('mailbox.accessible_settings_route', function($value, $user, $mailbox) {
@@ -90,7 +78,7 @@ class SavedRepliesServiceProvider extends ServiceProvider
             } else {
                 return $value;
             }
-        }, 10, 3);
+        }, 20, 3);
 
         // Select main menu item.
         \Eventy::addFilter('menu.selected', function($menu) {
@@ -98,6 +86,27 @@ class SavedRepliesServiceProvider extends ServiceProvider
 
             return $menu;
         });
+    }
+
+    /**
+     * Show saved replies in reply editor
+     * @param  [type] $conversation [description]
+     * @return [type]               [description]
+     */
+    public function editorDropdown($conversation)
+    {
+        $saved_replies = SavedReply::where('mailbox_id', $conversation->mailbox->id)->get();
+        echo \View::make('savedreplies::partials/editor_dropdown', ['saved_replies' => $saved_replies])->render();
+    }
+
+    /**
+     * Register the service provider.
+     *
+     * @return void
+     */
+    public function register()
+    {
+        //
     }
 
     /**

@@ -1,0 +1,1 @@
+<span class="tag {{ $tag->getColorClass() }}">{{ $tag->name }}</span>

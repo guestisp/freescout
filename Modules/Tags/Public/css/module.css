@@ -1,0 +1,56 @@
+#add-tag-wrap {
+    padding: 0;
+    /*display: block;*/
+    left: -70px;
+}
+#add-tag-wrap .input-group {
+    padding: 0;
+    margin: 6px 7px;
+    width: 200px;
+}
+#add-tag-wrap input {
+    text-transform: lowercase;
+}
+#add-tag-wrap .btn {
+    padding: 0 10px;
+}
+#conv_tags {
+    float: left;
+    overflow: hidden;
+}
+.tag {
+    background: #a5b2bd;
+    border-radius: 2px;
+    color: #fff;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: normal;
+    padding: 2px 4px 1px 4px;
+    cursor: pointer;
+    line-height: 14px;
+    margin: 0 4px 0 0;
+}
+.tag-name,
+.tag-name:hover,
+.tag-name:focus {
+    text-decoration: none;
+    color: inherit;
+}
+#conv_tags .tag {
+    padding-right: 0;
+    margin-top: 8px;
+}
+#conv_tags .tag:hover {
+    background-color: #96a5b2;
+}
+#conv_tags .tag-remove {
+    color: #e4e8e7;
+    display: inline-block;
+    font-size: 13px;
+    margin-left: 2px;
+    padding-right: 4px;
+    text-decoration: none;
+}
+.table-conversations .tag {
+    margin-right: 3px;
+}

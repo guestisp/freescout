@@ -1,5 +1,5 @@
 {
-    "name": "freescout/savedreplies",
+    "name": "freescout/tags",
     "description": "",
     "authors": [
         {
@@ -10,7 +10,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Modules\\SavedReplies\\Providers\\SavedRepliesServiceProvider"
+                "Modules\\Tags\\Providers\\TagsServiceProvider"
             ],
             "aliases": {
                 
@@ -19,7 +19,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Modules\\SavedReplies\\": ""
+            "Modules\\Tags\\": ""
         }
     }
 }

@@ -91,7 +91,7 @@ fs_conv_editor_toolbar[0][1].push('savedreplies');
 function initSavedReplies()
 {
 	$(document).ready(function(){
-		summernoteInit('.saved-reply-editor textarea:first', {minHeight: 250});
+		summernoteInit('.saved-reply-text', {minHeight: 250});
 
 		// Update saved reply
 		$('.saved-reply-save').click(function(e) {
