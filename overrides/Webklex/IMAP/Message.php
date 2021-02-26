@@ -335,33 +335,73 @@ class Message
 
             /*
              * Exception handling for invalid dates
-             * Will be extended in the future
              *
              * Currently known invalid formats:
              * ^ Datetime                                   ^ Problem                           ^ Cause
              * | Mon, 20 Nov 2017 20:31:31 +0800 (GMT+8:00) | Double timezone specification     | A Windows feature
+             * | Thu, 8 Nov 2018 08:54:58 -0200 (-02)       |
              * |                                            | and invalid timezone (max 6 char) |
              * | 04 Jan 2018 10:12:47 UT                    | Missing letter "C"                | Unknown
              * | Thu, 31 May 2018 18:15:00 +0800 (added by) | Non-standard details added by the | Unknown
              * |                                            | mail server                       |
+             * | Sat, 31 Aug 2013 20:08:23 +0580            | Invalid timezone                  | PHPMailer bug https://sourceforge.net/p/phpmailer/mailman/message/6132703/
              *
              * Please report any new invalid timestamps to [#45](https://github.com/Webklex/laravel-imap/issues/45)
              */
+            // try {
+            //     $this->date = Carbon::parse($date);
+            // } catch (\Exception $e) {
+            //     switch (true) {
+            //         case preg_match('/([A-Z]{2,3}\,\ [0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ [\-|\+][0-9]{4}\ \(.*)\)+$/i', $date) > 0:
+            //         case preg_match('/([0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{2,4}\ [0-9]{2}\:[0-9]{2}\:[0-9]{2}\ [A-Z]{2}\ \-[0-9]{2}\:[0-9]{2}\ \([A-Z]{2,3}\ \-[0-9]{2}:[0-9]{2}\))+$/i', $date) > 0:
+            //         $array = explode('(', $date);
+            //             $array = array_reverse($array);
+            //             $date = trim(array_pop($array));
+            //             break;
+            //         case preg_match('/([0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ UT)+$/i', $date) > 0:
+            //             $date .= 'C';
+            //             break;
+            //     }
+            //     $date = preg_replace('/[<>]/', '', $date);
+            //     try {
+            //         $this->date = Carbon::parse($date);
+            //     } catch (\Exception $e) {
+            //         \Helper::logException($e, '[Webklex\IMAP\Message]');
+            //     }
+            // }
+            if (preg_match('/\+0580/', $date)) {
+                $date = str_replace('+0580', '+0530', $date);
+            }
+            $date = trim(rtrim($date));
+            $date = preg_replace('/[<>]/', '', $date);
             try {
                 $this->date = Carbon::parse($date);
             } catch (\Exception $e) {
                 switch (true) {
+                    case preg_match('/([0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ UT)+$/i', $date) > 0:
+                    case preg_match('/([A-Z]{2,3}\,\ [0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ UT)+$/i', $date) > 0:
+                        $date .= 'C';
+                        break;
+                    case preg_match('/([A-Z]{2,3}[\,|\ \,]\ [0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}.*)+$/i', $date) > 0:
                     case preg_match('/([A-Z]{2,3}\,\ [0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ [\-|\+][0-9]{4}\ \(.*)\)+$/i', $date) > 0:
+                    case preg_match('/([A-Z]{2,3}\, \ [0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ [\-|\+][0-9]{4}\ \(.*)\)+$/i', $date) > 0:
                     case preg_match('/([0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{2,4}\ [0-9]{2}\:[0-9]{2}\:[0-9]{2}\ [A-Z]{2}\ \-[0-9]{2}\:[0-9]{2}\ \([A-Z]{2,3}\ \-[0-9]{2}:[0-9]{2}\))+$/i', $date) > 0:
-                    $array = explode('(', $date);
+                        $array = explode('(', $date);
                         $array = array_reverse($array);
                         $date = trim(array_pop($array));
                         break;
-                    case preg_match('/([0-9]{1,2}\ [A-Z]{2,3}\ [0-9]{4}\ [0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}\ UT)+$/i', $date) > 0:
-                        $date .= 'C';
-                        break;
                 }
-                $this->date = Carbon::parse($date);
+                try {
+                    $this->date = Carbon::parse($date);
+                } catch (\Exception $_e) {
+                    $this->date = Carbon::now();
+                    \Helper::logException($_e, '[Webklex\IMAP\Message]');
+                    \Helper::logExceptionToActivityLog($_e, 
+                        \App\ActivityLog::NAME_EMAILS_FETCHING, 
+                        \App\ActivityLog::DESCRIPTION_EMAILS_FETCHING_ERROR
+                    );
+                    //throw new InvalidMessageDateException("Invalid message date. ID:".$this->getMessageId(), 1000, $e);
+                }
             }
         }
 
@@ -475,7 +515,6 @@ class Message
                 $address->personal = false;
             }
 
-            // FreeScout fix
             $personalParts = imap_mime_header_decode($address->personal);
 
             $address->personal = '';
@@ -532,11 +571,14 @@ class Message
     private function fetchStructure($structure, $partNumber = null)
     {
         if ($structure->type == self::TYPE_TEXT &&
-            ($structure->ifdisposition == 0 ||
-                ($structure->ifdisposition == 1 && !isset($structure->parts) && $partNumber == null)
-            )
+            # FreeScout #320
+            #($structure->ifdisposition == 0 ||
+            #    ($structure->ifdisposition == 1 && !isset($structure->parts) && $partNumber == null)
+            #)
+            (empty($structure->disposition) || strtolower($structure->disposition) != 'attachment')
         ) {
-            if ($structure->subtype == 'PLAIN') {
+            // FreeScout improvement
+            /*if (strtolower($structure->subtype) == 'plain' || strtolower($structure->subtype) == 'csv') {
                 if (!$partNumber) {
                     $partNumber = 1;
                 }
@@ -554,7 +596,7 @@ class Message
                 $this->bodies['text'] = $body;
 
                 $this->fetchAttachment($structure, $partNumber);
-            } elseif ($structure->subtype == 'HTML') {
+            } elseif (strtolower($structure->subtype) == 'html') {
                 if (!$partNumber) {
                     $partNumber = 1;
                 }
@@ -570,6 +612,52 @@ class Message
                 $body->content = $content;
 
                 $this->bodies['html'] = $body;
+            }*/
+            if (strtolower($structure->subtype) == 'html') {
+                if (!$partNumber) {
+                    $partNumber = 1;
+                }
+
+                $encoding = $this->getEncoding($structure);
+
+                $content = imap_fetchbody($this->client->getConnection(), $this->uid, $partNumber, $this->fetch_options | FT_UID);
+                $content = $this->decodeString($content, $structure->encoding);
+                $content = $this->convertEncoding($content, $encoding);
+
+                // FreeScout #381
+                // Some messages (for exaple Apple Mail) may have multiple HTML parts.
+                if (empty($this->bodies['html'])) {
+                    $body = new \stdClass();
+                    $body->type = 'html';
+                    $body->content = $content;
+
+                    $this->bodies['html'] = $body;
+                } else {
+                    $this->bodies['html']->content .= $content;
+                }
+            } else {
+                // PLAIN.
+                if (!$partNumber) {
+                    $partNumber = 1;
+                }
+
+                $encoding = $this->getEncoding($structure);
+
+                $content = imap_fetchbody($this->client->getConnection(), $this->uid, $partNumber, $this->fetch_options | FT_UID);
+                $content = $this->decodeString($content, $structure->encoding);
+                $content = $this->convertEncoding($content, $encoding);
+
+                if (empty($this->bodies['text'])) {
+                    $body = new \stdClass();
+                    $body->type = 'text';
+                    $body->content = $content;
+
+                    $this->bodies['text'] = $body;
+                } else {
+                    $this->bodies['text']->content .= $content;
+                }
+
+                $this->fetchAttachment($structure, $partNumber);
             }
         } elseif ($structure->type == self::TYPE_MULTIPART) {
             foreach ($structure->parts as $index => $subStruct) {
@@ -739,14 +827,30 @@ class Message
             return $str;
         }
 
-        if (function_exists('iconv') && $from != 'UTF-7' && $to != 'UTF-7') {
-            return iconv($from, $to.'//IGNORE', $str);
-        } else {
-            if (!$from) {
-                return mb_convert_encoding($str, $to);
-            }
+        try {
+            if (function_exists('iconv') && $from != 'UTF-7' && $to != 'UTF-7') {
+                // FreeScout #351
+                return iconv($from, $to, $str);
+            } else {
+                if (!$from) {
+                    return mb_convert_encoding($str, $to);
+                }
 
-            return mb_convert_encoding($str, $to, $from);
+                return mb_convert_encoding($str, $to, $from);
+            }
+        } catch (\Exception $e) {
+            // FreeScout #360
+            if (strstr($from, '-')) {
+                $from = str_replace('-', '', $from);
+                return $this->convertEncoding($str, $from, $to);
+            } else {
+                \Helper::logException($e, '[Webklex\IMAP\Message]');
+                \Helper::logExceptionToActivityLog($e, 
+                    \App\ActivityLog::NAME_EMAILS_FETCHING, 
+                    \App\ActivityLog::DESCRIPTION_EMAILS_FETCHING_ERROR
+                );
+                return $str;
+            }
         }
     }
 

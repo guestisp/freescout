@@ -745,33 +745,61 @@ class FetchEmails extends Command
             return (mb_strlen($a) < mb_strlen($b)) ? -1 : 1;
         };
 
+        $result = '';
+
         if ($is_html) {
             // Extract body content from HTML
-            $dom = new \DOMDocument();
-            libxml_use_internal_errors(true);
-            $dom->loadHTML(mb_convert_encoding($body, 'HTML-ENTITIES', 'UTF-8'));
-            libxml_use_internal_errors(false);
-            $bodies = $dom->getElementsByTagName('body');
-            if ($bodies->length == 1) {
-                $body_el = $bodies->item(0);
-                $body = $dom->saveHTML($body_el);
+            // Split by <html>
+            $htmls = [];
+            preg_match_all("/<html[^>]*>(.*?)<\/html>/is", $body, $htmls);
+
+            if (empty($htmls[0])) {
+                $htmls[0] = [$body];
             }
-            preg_match("/<body[^>]*>(.*?)<\/body>/is", $body, $matches);
-            if (count($matches)) {
-                $body = $matches[1];
+            foreach ($htmls[0] as $html) {
+                // One body.
+                $dom = new \DOMDocument();
+                libxml_use_internal_errors(true);
+                $dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+                libxml_use_internal_errors(false);
+                $bodies = $dom->getElementsByTagName('body');
+                if ($bodies->length == 1) {
+                    $body_el = $bodies->item(0);
+                    $html = $dom->saveHTML($body_el);
+                }
+                preg_match("/<body[^>]*>(.*?)<\/body>/is", $html, $matches);
+                if (count($matches)) {
+                    $result .= $matches[1];
+                }
+            }
+            if (!$result) {
+                $result = $body;
             }
         } else {
-            $body = nl2br($body);
+            $result = nl2br($body);
         }
+
 
         // This is reply, we need to separate reply text from old text
         if ($is_reply) {
             // Check all separators and choose the shortest reply
             $reply_bodies = [];
             foreach (Mail::$alternative_reply_separators as $alt_separator) {
-                $parts = explode($alt_separator, $body);
+                if (\Str::startsWith($alt_separator, 'regex:')) {
+                    $regex = preg_replace("/^regex:/", '', $alt_separator);
+                    $parts = preg_split($regex, $result);
+                } else {
+                    $parts = explode($alt_separator, $result);
+                }
                 if (count($parts) > 1) {
-                    $reply_bodies[] = $parts[0];
+                    // Check if past contains any real text.
+                    $text = \Helper::htmlToText($parts[0]);
+                    $text = trim($text);
+                    $text = preg_replace('/^\s+/mu', '', $text);
+
+                    if ($text) {
+                        $reply_bodies[] = $parts[0];
+                    }
                 }
             }
             if (count($reply_bodies)) {
@@ -781,7 +809,7 @@ class FetchEmails extends Command
             }
         }
 
-        return $body;
+        return $result;
     }
 
     public function replaceCidsWithAttachmentUrls($body, $attachments)
